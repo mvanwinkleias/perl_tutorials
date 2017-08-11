@@ -6,7 +6,7 @@ MyOurLocalTutorial
 
 =head1 DESCRIPTION
 
-A short augmentation to "other" Perl namespace documentation available
+A short augmentation to "other" Perl namespace documentation available.
 
 =head1 SYNOPSIS
 
@@ -86,7 +86,9 @@ It might help to pretend that { and } surround the file.
   	while (1)
   	{
   		$count++;
-  		my $inner;
+  		my $inner = $count * 5;
+  		print "$inner is divisible by 3.\n"
+  			if ($inner % 3 == 0);
   		last if $count > 10;
   	}
     
@@ -96,6 +98,8 @@ It might help to pretend that { and } surround the file.
   	# $outer still exists.
   }
   # $outer is not available here.
+  # $lexically_scoped_global is available here.
+  
   1;
   
   ### file script.pl ###
@@ -123,6 +127,8 @@ This allows code outside of the scope of the variable to refer to, and manipulat
   
   use Getopt::Long;
   
+  # This variable is accessable with the name:
+  # $HelpfulMandy::appointment_time
   our $appointment_time;
   
   {
