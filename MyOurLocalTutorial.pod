@@ -1,0 +1,303 @@
+=pod
+
+=head1 NAME
+
+MyOurLocalTutorial
+
+=head1 DESCRIPTION
+
+A short augmentation to "other" Perl namespace documentation available
+
+=head1 SYNOPSIS
+
+For the most part you will be declaring and using your own variables with B<my>.
+
+You should have specific reasoning for not using B<my>.
+
+Sometimes you will want temporarily change a variable that's not yours.
+That's when you use B<local>.
+
+Sometimes you will want to "permanently" change a varaible that's not yours.
+Then you just change it.
+
+=head2 B<my> and B<our>
+
+  # Nothing outside of the current scope can refer to this:
+  my $my_own_variable = "Hello!";
+
+  # our declares a package variable.
+  # Things outside of the current scope can refer to this:
+  our $verbose = '0';
+  # more on this later.
+
+=head2 B<local> - Temporarily altering variables
+
+Use B<local> when the following conditions apply:
+
+=over 4
+
+=item * variables that aren't yours
+
+=item * variables you want to revert to their previous value when the scope goes away
+
+=back
+
+Examples:
+
+  # This isn't your variable.  It's Perl's.
+  local $/; 
+
+  # This isn't your variable.  It's Getopt::Long's.
+  local $Getopt::Long::passthrough=1
+
+=cut
+
+=head1 my
+
+B<my> allows you to declare a variables that are available to the current scope and "subscopes";
+i.e. scopes that exist inside other scopes.
+
+Scopes are defined in 2 ways:
+
+=over 4
+
+=item * file
+
+=item * using { and }
+
+=back
+
+It might help to pretend that { and } surround the file.
+
+  ### file HandyDandy.pm ###
+  package HandyDandy;
+  use strict;
+  use warnings;
+  
+  my $lexically_scoped_global = "Hello!";
+
+  sub work
+  {
+  	# This works:
+  	print $lexically_scoped_global,$/;
+  	my $count = 0;
+  	my $outer;
+  
+  	while (1)
+  	{
+  		$count++;
+  		my $inner;
+  		last if $count > 10;
+  	}
+    
+  	print "Counted to: $count",$/;
+
+  	# $inner is not available here.
+  	# $outer still exists.
+  }
+  # $outer is not available here.
+  1;
+  
+  ### file script.pl ###
+  
+  #!/usr/bin/perl
+  use strict;
+  use warnings;
+  use HandyDandy;
+  
+  HandyDandy::work();
+  # You can not refer to
+  # $HandyDandy::lexically_scoped_global
+  # because it was declared with "my".
+
+=head1 our
+
+Use B<our> to declare a package variable: a variable that is accessible by the package name.
+
+This allows code outside of the scope of the variable to refer to, and manipulate it.
+
+  ### file HelpfulMandy.pm ###
+  package HelpfulMandy;
+  use strict;
+  use warnings;
+  
+  use Getopt::Long;
+  
+  our $appointment_time;
+  
+  {
+  	# This is explained later.
+  	local $Getopt::Long::passthrough = 1;
+  	GetOptions( 'appointment-time=s' => \$appointment_time);
+  }
+  
+  $appointment_time ||= "10:30AM";
+  
+  sub say_appointment_time
+  {
+  	print "This is Mandy.  I'm scheduled to help at $appointment_time.\n";
+  }
+  1;
+  
+  ### End HelpfulMandy.pm ###
+  
+  ### file working_parent1.pl ###
+  
+  #!/usr/bin/perl
+  use strict;
+  use warnings;
+  
+  use HelpfulMandy;
+  
+  HelpfulMandy::say_appointment_time();
+  # 10:30AM
+  # Change the time Mandy is coming over:
+  change_schedule();
+  HelpfulMandy::say_appointment_time();
+  # 11:30AM
+  
+  exit;
+  
+  sub change_schedule
+  {
+  	# This change is not temporary
+  	$HelpfulMandy::appointment_time = "11:30AM";
+  	HelpfulMandy::say_appointment_time();
+  }
+  
+  ### End working_parent1.pl ###
+
+=head1 local
+
+use B<local> when you want a change to revert after a scope exits.
+
+=head2 Temporarily Changing another Package's Variable
+
+  ### file working_parent2.pl ###
+
+  #!/usr/bin/perl
+  use strict;
+  use warnings;
+  
+  use HelpfulMandy;
+  
+  HelpfulMandy::say_appointment_time();
+  # 10:30
+  change_schedule();
+  HelpfulMandy::say_appointment_time();
+  # 10:30
+  
+  exit;
+  
+  sub change_schedule
+  {
+  	# This change IS temporary
+  	local $HelpfulMandy::appointment_time = "09:00AM";
+  	HelpfulMandy::say_appointment_time();
+  	# 09:00
+  }
+  
+  ### End working_parent2.pl ###
+
+=head2 Temporarily Changing a Perl Special Variable
+
+  ### file something1.pl ###
+  
+  #!/usr/bin/perl
+  
+  use strict;
+  use warnings;
+  
+  # In this example, we're changing $/
+  print "Hello!", $/;
+  
+  my $etc_hosts = read_whole_file('/etc/hosts');
+
+  print "/etc/hosts: ", $/;
+  print $etc_hosts, $/;
+  exit;
+  
+  sub read_whole_file
+  {
+  	my ($file_name) = @_;
+  	use IO::File;
+  	open my $fh, '<', $file_name
+  		or die "Can't open $file_name for reading: $!";
+  	local $/;
+  	my $whole_file = <$fh>;
+  	$fh->close();
+  	return $whole_file;
+  }
+  
+  ### End something1.pl ###
+
+=head2 Putting it All Together
+
+You'll probably notice that HelpfulMandy uses local on Getopt::Long::passthrough.
+
+That variable configures Getopt::Long to allow it to continue on its merry way
+in the event there's an option that it didn't recognize.
+(see perldoc Getopt::Long for more info).
+
+When working_parent3.pl calls GetOptions, $passthrough is set to 0 (the default) , which means that
+GetOptions will complain if there are options it didn't recoginze.
+
+  ### file working_parent3.pl
+  
+  #!/usr/bin/perl
+  
+  use strict;
+  use warnings;
+  
+  use Getopt::Long;
+  use HelpfulMandy;
+  my $wakeup_time;
+  
+  # Run me (optionally) with:
+  #  --wakeup-time='09:00AM' --appointment-time="12:00PM"
+  
+  GetOptions( 'wakeup-time=s' => \$wakeup_time)
+  	or die "Bad options given to parent.";
+  
+  $wakeup_time ||= '06:00AM';
+  
+  HelpfulMandy::say_appointment_time();
+  say_wakeup_time();
+  
+  exit;
+  
+  sub say_wakeup_time
+  {
+  	print "This is the parent.  I wake up at $wakeup_time\n";
+  }
+  
+  ### End working_parent3.pl
+
+
+=head1 CONCLUSION
+
+=over 4
+
+=item * use B<my> when you want only the current scope or subscopes to be able to access a variable.
+
+=item * use B<our> when you want code inside and outside of the current scope to access it.
+
+=item * use B<local> when you want want to change variables that aren't yours AND you want
+them to revert to their previous values when the scope exits.
+
+=back
+
+=head1 AUTHOR
+
+  Martin VanWinkle mvanwinkle@ias.edu
+
+=head1 ACKNOWLEDGEMENTS
+
+  Dan Book
+
+=head1 LICENSE
+
+  GPLv3
+
+=cut
+
