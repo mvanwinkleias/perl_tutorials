@@ -107,12 +107,16 @@ It might help to pretend that { and } surround the file.
   #!/usr/bin/perl
   use strict;
   use warnings;
+
   use HandyDandy;
-  
-  HandyDandy::work();
+
   # You can not refer to
   # $HandyDandy::lexically_scoped_global
   # because it was declared with "my".
+  
+  HandyDandy::work();
+  
+  ### end script.pl ###
 
 =head1 our
 
